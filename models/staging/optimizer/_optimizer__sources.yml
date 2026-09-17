@@ -1,0 +1,39 @@
+version: 2
+
+sources:
+  - name: optimizer
+    description: >
+      Tables written by the local Streamlit inventory optimizer. The app creates
+      `policy_recommendations` on first writeback; this source does not replace
+      ERP or WMS landing tables.
+    schema: "{{ var('optimizer_schema', target.schema) }}"
+    tables:
+      - name: policy_recommendations
+        description: >
+          One row per SKU and location for a single optimizer run, stamped with
+          run_id and created_at so later inventory snapshots can be compared
+          against the recommendation that was in force.
+        columns:
+          - name: run_id
+            description: Identifier shared by every row produced in one writeback.
+            data_tests: [not_null]
+          - name: created_at
+            description: UTC timestamp when the run was written, stored as TIMESTAMP_NTZ.
+          - name: sku
+            description: Item the recommended policy applies to.
+            data_tests: [not_null]
+          - name: location_id
+            description: Network node the recommended policy applies to.
+            data_tests: [not_null]
+          - name: demand_class
+            description: Syntetos-Boylan class used to choose the lead-time demand model.
+          - name: method
+            description: Safety-stock method applied (normal CSL, Poisson fill rate, or negative binomial fill rate).
+          - name: recommended_safety_stock
+            description: Optimizer safety stock in units.
+          - name: recommended_reorder_point
+            description: Optimizer reorder point in units.
+          - name: current_safety_stock
+            description: Safety stock observed in the warehouse when the run was generated.
+          - name: annual_net_benefit
+            description: Estimated annual holding-versus-shortage benefit of adopting the recommendation.

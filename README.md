@@ -32,6 +32,8 @@ The optimizer reads **row-level feature inputs directly from marts** when it nee
 
 Direct mart reads keep high-volume feature extraction efficient and preserve the row grain required by optimization algorithms. The app should not reimplement governed KPI formulas over those rows; displayed KPIs come back through GraphQL.
 
+The local Streamlit app lives in [`apps/inventory_optimizer/`](apps/inventory_optimizer/README.md) and is registered as the `inventory_policy_optimizer` exposure. It does not replace any mart; writeback lands in the `optimizer.policy_recommendations` source and `fct_policy_recommendation_impact` compares those recommendations to later inventory snapshots.
+
 ## Validation
 
 ```bash

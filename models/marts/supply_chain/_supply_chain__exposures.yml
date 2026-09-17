@@ -1,0 +1,24 @@
+version: 2
+
+exposures:
+  - name: inventory_policy_optimizer
+    label: Meridian inventory policy optimizer
+    type: application
+    maturity: medium
+    url: https://github.com/colin-thornburg/Supply-Chain-Optimization/tree/main/apps/inventory_optimizer
+    description: >
+      Local Streamlit app that sizes multi-echelon inventory policy from weekly
+      SKU-location demand. Network overview KPIs are queried from the Semantic
+      Layer; safety stock, EOQ, pooling, and scenario math run in Python.
+    depends_on:
+      - ref('agg_sku_location_demand_weekly')
+      - ref('agg_supplier_scorecard')
+      - ref('agg_sku_location_service_metrics')
+      - ref('fct_inventory_snapshots')
+      - ref('dim_products')
+      - ref('dim_locations')
+      - ref('dim_suppliers')
+      - ref('fct_policy_recommendation_impact')
+    owner:
+      name: Analytics Engineering
+      email: analytics-engineering@meridian.example

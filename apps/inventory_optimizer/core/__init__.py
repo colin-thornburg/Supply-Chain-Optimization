@@ -1,0 +1,103 @@
+"""Pure inventory-policy math for the Meridian Industrial Supply optimizer.
+
+Every public function is deterministic, has no I/O, and is covered by tests in
+``tests/``. Streamlit and Snowflake live outside this package.
+"""
+
+from core.demand import (
+    ADI_CUTOFF,
+    CV2_CUTOFF,
+    DEMAND_CLASSES,
+    DemandStats,
+    average_demand_interval,
+    classify_demand,
+    coefficient_of_variation,
+    cv_squared_demand_size,
+    demand_mean,
+    demand_statistics,
+    demand_std,
+)
+from core.network import (
+    PoolingResult,
+    echelon_demand_rollup,
+    pooling_comparison,
+    sigma_pooled_independent,
+    square_root_law_ratio,
+)
+from core.policy import (
+    DEFAULT_HOLDING_RATE,
+    AllocationResult,
+    FrontierPoint,
+    PolicyRecommendation,
+    SkuLocationParams,
+    achieved_cycle_service_level,
+    achieved_fill_rate,
+    allocate_service_levels,
+    economic_order_quantity,
+    efficient_frontier,
+    expected_shortage,
+    recommend_policy,
+    reorder_point,
+    round_order_quantity,
+    safety_stock_normal,
+    sigma_demand_over_lead_time,
+    z_from_service_level,
+)
+from core.scenarios import (
+    PolicySnapshot,
+    ScenarioComparison,
+    Shock,
+    apply_shock,
+    compare_policies_under_shock,
+)
+from core.writeback import (
+    POLICY_RECOMMENDATION_COLUMNS,
+    POLICY_RECOMMENDATIONS_DDL,
+    build_recommendation_frame,
+    stamp_run,
+)
+
+__all__ = [
+    "ADI_CUTOFF",
+    "CV2_CUTOFF",
+    "DEFAULT_HOLDING_RATE",
+    "DEMAND_CLASSES",
+    "AllocationResult",
+    "DemandStats",
+    "FrontierPoint",
+    "POLICY_RECOMMENDATION_COLUMNS",
+    "POLICY_RECOMMENDATIONS_DDL",
+    "PolicyRecommendation",
+    "PolicySnapshot",
+    "PoolingResult",
+    "ScenarioComparison",
+    "Shock",
+    "SkuLocationParams",
+    "achieved_cycle_service_level",
+    "achieved_fill_rate",
+    "allocate_service_levels",
+    "apply_shock",
+    "average_demand_interval",
+    "build_recommendation_frame",
+    "classify_demand",
+    "coefficient_of_variation",
+    "compare_policies_under_shock",
+    "cv_squared_demand_size",
+    "demand_mean",
+    "demand_statistics",
+    "demand_std",
+    "echelon_demand_rollup",
+    "economic_order_quantity",
+    "efficient_frontier",
+    "expected_shortage",
+    "pooling_comparison",
+    "recommend_policy",
+    "reorder_point",
+    "round_order_quantity",
+    "safety_stock_normal",
+    "sigma_demand_over_lead_time",
+    "sigma_pooled_independent",
+    "square_root_law_ratio",
+    "stamp_run",
+    "z_from_service_level",
+]

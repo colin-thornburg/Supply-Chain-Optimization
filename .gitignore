@@ -4,3 +4,12 @@ target/
 dbt_packages/
 logs/
 dbt_internal_packages/
+
+# Streamlit optimizer
+apps/inventory_optimizer/.venv/
+apps/inventory_optimizer/.streamlit/secrets.toml
+**/__pycache__/
+**/.pytest_cache/
+.DS_Store
+.env
+

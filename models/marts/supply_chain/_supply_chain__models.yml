@@ -1,0 +1,53 @@
+version: 2
+
+models:
+  - name: fct_policy_recommendation_impact
+    description: >
+      One row per optimizer run, SKU, location, and inventory snapshot dated on
+      or after the run. Used to see whether warehouse policy later moved toward
+      the recommended safety stock and reorder point, not to rebuild the
+      optimizer itself.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [run_id, sku, location_id, snapshot_date]
+    columns:
+      - name: policy_recommendation_impact_key
+        description: Hash of run, SKU, location, and snapshot date.
+        data_tests: [not_null, unique]
+      - name: run_id
+        description: Optimizer writeback that produced the recommendation.
+      - name: created_at
+        description: When the recommendation set was written.
+      - name: snapshot_date
+        description: Weekly inventory snapshot against which the recommendation is compared.
+      - name: sku
+        description: Item shared by the recommendation and the snapshot.
+      - name: location_id
+        description: Network node shared by the recommendation and the snapshot.
+      - name: recommended_safety_stock
+        description: Units of safety stock the optimizer proposed.
+      - name: actual_safety_stock
+        description: Safety stock still sitting on the snapshot — the live policy.
+      - name: safety_stock_gap_units
+        description: Recommended safety stock minus snapshot safety stock. Positive means the warehouse is still leaner than recommended.
+      - name: is_after_recommendation
+        description: Always true in this model because snapshots are filtered to dates on or after the run.
+
+unit_tests:
+  - name: impact_keeps_only_snapshots_on_or_after_the_run
+    description: >
+      A snapshot before the writeback is dropped so the fact only compares
+      live policy after the recommendation existed.
+    model: fct_policy_recommendation_impact
+    given:
+      - input: source('optimizer', 'policy_recommendations')
+        rows:
+          - {run_id: r1, created_at: '2026-06-01 00:00:00', sku: SKU000001, location_id: LOC001, demand_class: smooth, method: normal_csl, recommended_safety_stock: 50, recommended_reorder_point: 120, recommended_order_qty: 40, current_safety_stock: 20}
+      - input: ref('fct_inventory_snapshots')
+        rows:
+          - {sku: SKU000001, location_id: LOC001, snapshot_date: '2026-06-15', current_safety_stock_qty: 20, current_reorder_point: 80, current_reorder_qty: 40, on_hand_qty: 15, on_hand_value: 150}
+          - {sku: SKU000001, location_id: LOC001, snapshot_date: '2026-05-01', current_safety_stock_qty: 20, current_reorder_point: 80, current_reorder_qty: 40, on_hand_qty: 15, on_hand_value: 150}
+    expect:
+      rows:
+        - {run_id: r1, sku: SKU000001, location_id: LOC001, snapshot_date: '2026-06-15', safety_stock_gap_units: 30, is_after_recommendation: true}
