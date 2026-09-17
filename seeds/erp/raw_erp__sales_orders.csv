@@ -1,0 +1,9 @@
+order_id,customer_id,fulfilling_location_id,order_channel,ordered_at,requested_ship_date,order_status
+SO00000001,CUS00001,LOC003,branch_counter,2024-07-08 09:15:00,2024-07-09,complete
+SO00000002,CUS00002,LOC003,ecommerce,2024-11-18 14:30:00,2024-11-20,partially_shipped
+SO00000003,CUS00003,LOC002,edi,2025-01-13 08:45:00,2025-01-15,open
+SO00000004,CUS00004,LOC003,mobile_app,2025-07-14 16:10:00,2025-07-16,complete
+SO00000005,CUS00005,LOC003,inside_sales,2025-08-18 10:20:00,2025-08-20,partially_shipped
+SO00000006,CUS00001,LOC003,edi,2026-01-12 11:05:00,2026-01-14,cancelled
+SO00000007,CUS00002,LOC003,ecommerce,2026-05-11 13:40:00,2026-05-13,complete
+SO00000008,CUS00003,LOC002,inside_sales,2026-06-22 09:00:00,2026-06-24,complete

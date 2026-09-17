@@ -1,0 +1,130 @@
+version: 2
+
+sources:
+  - name: wms
+    description: Synthetic WMS landing tables for the fictional Meridian Industrial Supply demo.
+    schema: "{{ var('raw_schema', target.schema ~ '_raw') }}"
+    # Seeds stand in for production landing tables; identifiers keep source() wiring production-shaped.
+    tables:
+      - name: locations
+        identifier: raw_wms__locations
+        description: Distribution network locations arranged as a national-to-onsite echelon.
+        columns:
+          - name: location_id
+            description: Unique location identifier.
+            data_tests: [not_null, unique]
+          - name: location_name
+            description: Human-readable fictional location name.
+          - name: location_type
+            description: Node type within the distribution echelon.
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [national_dc, regional_dc, branch, onsite]
+          - name: parent_location_id
+            description: Immediate upstream location in the replenishment hierarchy, null for the national DC.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: state
+            description: Two-letter state code for the location.
+          - name: region
+            description: Domestic operating region for network analysis.
+          - name: square_feet
+            description: Approximate facility area in square feet.
+          - name: is_active
+            description: Whether the location is currently active.
+          - name: opened_date
+            description: Date the location began operating.
+
+      - name: inventory_snapshots
+        identifier: raw_wms__inventory_snapshots
+        description: Weekly SKU-location inventory positions and deliberately naive replenishment settings.
+        # Freshness is illustrative against seeded data rather than a live ingestion SLA.
+        config:
+          loaded_at_field: snapshot_date
+          freshness:
+            warn_after: {count: 14, period: day}
+            error_after: {count: 21, period: day}
+
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [snapshot_date, location_id, sku]
+        columns:
+          - name: snapshot_date
+            description: Weekly inventory observation date.
+            data_tests: [not_null]
+          - name: location_id
+            description: Location holding the inventory position.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: sku
+            description: Stock keeping unit at the location.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: on_hand_qty
+            description: Physical units present at snapshot time.
+          - name: allocated_qty
+            description: On-hand units committed to open demand.
+          - name: on_order_qty
+            description: Units on open replenishment orders.
+          - name: in_transit_qty
+            description: Ordered units currently moving between nodes.
+          - name: current_safety_stock_qty
+            description: Safety stock from the existing flat weeks-of-supply rule.
+          - name: current_reorder_point
+            description: Reorder threshold from the existing flat weeks-of-supply rule.
+          - name: current_reorder_qty
+            description: Replenishment quantity from the existing flat weeks-of-supply rule.
+          - name: last_count_date
+            description: Most recent cycle-count date as of the snapshot.
+
+      - name: transfer_orders
+        identifier: raw_wms__transfer_orders
+        description: Inventory transfers between distribution network locations.
+        columns:
+          - name: transfer_id
+            description: Unique transfer order identifier.
+            data_tests: [not_null, unique]
+          - name: sku
+            description: SKU being transferred.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: from_location_id
+            description: Location shipping the transfer.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: to_location_id
+            description: Location receiving the transfer.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: qty
+            description: Number of units requested for transfer.
+          - name: created_at
+            description: Timestamp the transfer was created.
+          - name: shipped_at
+            description: Timestamp the transfer left its origin, when applicable.
+          - name: received_at
+            description: Timestamp the transfer arrived, when applicable.
+          - name: status
+            description: Current transfer fulfillment status.

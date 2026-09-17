@@ -1,0 +1,143 @@
+version: 2
+
+models:
+  - name: stg_wms__locations
+    description: One row per WMS network node, preserving the parent pointer needed to reconstruct Meridian's distribution echelon.
+    columns:
+      - name: location_id
+        description: Stable node identifier used by orders, inventory snapshots, transfers, and customer assignments.
+        data_tests: [not_null, unique]
+      - name: location_name
+        description: Operational display name for the warehouse, branch, or onsite location.
+      - name: location_type
+        description: Role the node plays in the national-to-customer replenishment hierarchy.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [national_dc, regional_dc, branch, onsite]
+      - name: parent_location_id
+        description: Immediate upstream replenishment node; null only for a national distribution center.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: state
+        description: Two-letter jurisdiction used for domestic network reporting.
+      - name: region
+        description: Broader operating territory used to compare network performance.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [central, northeast, south, west]
+      - name: square_feet
+        description: Approximate floor area available for storage and operations.
+      - name: is_active
+        description: True when the node remains available for fulfillment and replenishment.
+      - name: opened_date
+        description: First operating date, used to bound valid historical activity for the location.
+
+  - name: stg_wms__inventory_snapshots
+    description: One row per SKU, location, and weekly snapshot date containing physical, committed, and inbound inventory quantities.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [snapshot_date, location_id, sku]
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: >-
+              on_hand_qty >= 0
+              and allocated_qty >= 0
+              and on_order_qty >= 0
+              and in_transit_qty >= 0
+              and current_safety_stock_qty >= 0
+              and current_reorder_point >= 0
+              and current_reorder_qty >= 0
+    columns:
+      - name: inventory_snapshot_key
+        description: Hash key for the SKU, location, and snapshot-date grain.
+        data_tests: [not_null, unique]
+      - name: snapshot_date
+        description: Weekly observation date for the inventory position.
+        data_tests: [not_null]
+      - name: location_id
+        description: Network node at which the quantities were observed.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: sku
+        description: Item whose inventory position was recorded.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: on_hand_qty
+        description: Units physically present before subtracting allocations.
+      - name: allocated_qty
+        description: Present units already committed to customer or transfer demand.
+      - name: on_order_qty
+        description: Units expected from open supplier replenishment orders.
+      - name: in_transit_qty
+        description: Units already moving through the network but not yet received.
+      - name: current_safety_stock_qty
+        description: Buffer quantity maintained by the current planning policy.
+      - name: current_reorder_point
+        description: Current on-hand threshold that triggers a replenishment order.
+      - name: current_reorder_qty
+        description: Current quantity requested when replenishment is triggered.
+      - name: last_count_date
+        description: Most recent physical or cycle count supporting the recorded balance.
+
+  - name: stg_wms__transfer_orders
+    description: One row per WMS transfer order moving a single SKU between two Meridian network locations.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: qty >= 0
+    columns:
+      - name: transfer_id
+        description: Stable identifier for the inter-location movement.
+        data_tests: [not_null, unique]
+      - name: sku
+        description: Item requested for movement between network nodes.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: from_location_id
+        description: Origin node releasing the inventory.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: to_location_id
+        description: Destination node expected to receive the inventory.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: qty
+        description: Units requested for movement on the transfer.
+      - name: created_at
+        description: Timestamp when WMS opened the transfer request.
+      - name: shipped_at
+        description: Timestamp when the origin released the shipment; null before shipment or after cancellation.
+      - name: received_at
+        description: Timestamp when the destination accepted the shipment; null until receipt.
+      - name: status
+        description: Operational state distinguishing completed, moving, and cancelled transfers.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [received, in_transit, cancelled]

@@ -1,0 +1,11 @@
+sku,product_name,category,subcategory,brand,is_private_label,unit_of_measure,pack_qty,standard_unit_cost,list_price,abc_class,xyz_class,is_hazmat,weight_lbs,cube_cuft,lifecycle_status,first_sold_date
+SKU000001,Cut Resistant Gloves,safety_ppe,hand_protection,Meridian Select,true,pair,12,8.5000,14.9900,A,X,false,0.3500,0.0200,active,2022-03-15
+SKU000002,Protective Safety Glasses,safety_ppe,eye_protection,Northforge,false,each,1,5.2500,10.4900,A,Y,false,0.1200,0.0100,active,2021-08-02
+SKU000003,Ice Control Pellets,winter,ice_control,Blue Anvil,false,bag,1,18.7500,29.9900,B,Z,false,50.0000,1.2000,active,2020-10-10
+SKU000004,Pleated Air Filter,hvac_filters,pleated_filters,Summit Arc,false,case,12,32.0000,54.9900,A,X,false,8.0000,2.5000,active,2019-04-21
+SKU000005,Portable Cooling Fan,cooling,fans,Ironleaf,false,each,1,74.5000,119.9900,B,Y,false,18.5000,3.8000,active,2023-05-11
+SKU000006,Hex Bolt Assortment,fasteners,bolts,Meridian Select,true,box,100,11.2500,19.9900,A,X,false,6.2000,0.1800,active,2018-01-05
+SKU000007,Industrial Bearing,power_transmission,bearings,Cobalt Ridge,false,each,1,42.7500,69.9900,C,Z,false,2.1000,0.0600,phase_out,2017-09-19
+SKU000008,Hydraulic Hose,fluid_handling,hoses,Northforge,false,roll,1,58.0000,94.9900,C,Z,true,14.0000,0.9000,new,2025-02-01
+SKU000009,Precision Caliper,tools,measuring_tools,Summit Arc,false,each,1,36.5000,64.9900,B,Y,false,1.1000,0.0400,active,2020-06-30
+SKU000010,Legacy Drive Belt,power_transmission,belts,Cobalt Ridge,false,each,1,21.0000,35.9900,C,Z,false,0.8000,0.0300,discontinued,2016-11-12

@@ -1,0 +1,153 @@
+version: 2
+
+seeds:
+  - name: raw_erp__products
+    config:
+      column_types:
+        sku: varchar(9)
+        product_name: varchar(100)
+        category: varchar(40)
+        subcategory: varchar(40)
+        brand: varchar(50)
+        is_private_label: boolean
+        unit_of_measure: varchar(10)
+        pack_qty: number(18,0)
+        standard_unit_cost: number(18,4)
+        list_price: number(18,4)
+        abc_class: varchar(1)
+        xyz_class: varchar(1)
+        is_hazmat: boolean
+        weight_lbs: number(18,4)
+        cube_cuft: number(18,4)
+        lifecycle_status: varchar(20)
+        first_sold_date: date
+
+  - name: raw_erp__product_substitutes
+    config:
+      column_types:
+        sku: varchar(9)
+        substitute_sku: varchar(9)
+        substitution_type: varchar(20)
+        preference_rank: number(18,0)
+
+  - name: raw_erp__suppliers
+    config:
+      column_types:
+        supplier_id: varchar(7)
+        supplier_name: varchar(100)
+        supplier_country: varchar(50)
+        sourcing_region: varchar(30)
+        payment_terms_days: number(18,0)
+        is_private_label_manufacturer: boolean
+        quality_rating: number(18,4)
+
+  - name: raw_erp__supplier_products
+    config:
+      column_types:
+        supplier_id: varchar(7)
+        sku: varchar(9)
+        is_primary_source: boolean
+        quoted_lead_time_days: number(18,0)
+        min_order_qty: number(18,0)
+        order_multiple: number(18,0)
+        unit_cost: number(18,4)
+        effective_from_date: date
+
+  - name: raw_erp__customers
+    config:
+      column_types:
+        customer_id: varchar(8)
+        customer_name: varchar(100)
+        industry_segment: varchar(40)
+        size_tier: varchar(20)
+        contract_type: varchar(30)
+        is_onsite_program: boolean
+        primary_location_id: varchar(6)
+        first_order_date: date
+
+  - name: raw_erp__sales_orders
+    config:
+      column_types:
+        order_id: varchar(10)
+        customer_id: varchar(8)
+        fulfilling_location_id: varchar(6)
+        order_channel: varchar(20)
+        ordered_at: timestamp_ntz
+        requested_ship_date: date
+        order_status: varchar(30)
+
+  - name: raw_erp__sales_order_lines
+    config:
+      column_types:
+        order_line_id: varchar(12)
+        order_id: varchar(10)
+        sku: varchar(9)
+        ordered_qty: number(18,0)
+        shipped_qty: number(18,0)
+        unit_price: number(18,4)
+        unit_cost: number(18,4)
+        line_status: varchar(30)
+        shipped_at: timestamp_ntz
+        substituted_sku: varchar(9)
+
+  - name: raw_erp__purchase_orders
+    config:
+      column_types:
+        po_id: varchar(9)
+        supplier_id: varchar(7)
+        destination_location_id: varchar(6)
+        ordered_at: timestamp_ntz
+        promised_date: date
+        po_status: varchar(30)
+
+  - name: raw_erp__purchase_order_lines
+    config:
+      column_types:
+        po_line_id: varchar(11)
+        po_id: varchar(9)
+        sku: varchar(9)
+        ordered_qty: number(18,0)
+        received_qty: number(18,0)
+        unit_cost: number(18,4)
+        received_at: timestamp_ntz
+
+  - name: raw_wms__locations
+    config:
+      column_types:
+        location_id: varchar(6)
+        location_name: varchar(100)
+        location_type: varchar(20)
+        parent_location_id: varchar(6)
+        state: varchar(2)
+        region: varchar(20)
+        square_feet: number(18,0)
+        is_active: boolean
+        opened_date: date
+
+  - name: raw_wms__inventory_snapshots
+    config:
+      column_types:
+        snapshot_date: date
+        location_id: varchar(6)
+        sku: varchar(9)
+        on_hand_qty: number(18,0)
+        allocated_qty: number(18,0)
+        on_order_qty: number(18,0)
+        in_transit_qty: number(18,0)
+        current_safety_stock_qty: number(18,0)
+        current_reorder_point: number(18,0)
+        current_reorder_qty: number(18,0)
+        last_count_date: date
+
+  - name: raw_wms__transfer_orders
+    config:
+      column_types:
+        transfer_id: varchar(11)
+        sku: varchar(9)
+        from_location_id: varchar(6)
+        to_location_id: varchar(6)
+        qty: number(18,0)
+        created_at: timestamp_ntz
+        shipped_at: timestamp_ntz
+        received_at: timestamp_ntz
+        status: varchar(20)

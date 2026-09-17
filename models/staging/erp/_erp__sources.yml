@@ -1,0 +1,304 @@
+version: 2
+
+sources:
+  - name: erp
+    description: Synthetic ERP landing tables for the fictional Meridian Industrial Supply demo.
+    schema: "{{ var('raw_schema', target.schema ~ '_raw') }}"
+    # Seeds stand in for production landing tables; identifiers keep source() wiring production-shaped.
+    tables:
+      - name: products
+        identifier: raw_erp__products
+        description: Product master with merchandising, cost, handling, and planning attributes.
+        columns:
+          - name: sku
+            description: Unique stock keeping unit identifier.
+            data_tests: [not_null, unique]
+          - name: product_name
+            description: Human-readable synthetic product name.
+          - name: category
+            description: Top-level MRO product category.
+          - name: subcategory
+            description: Detailed MRO product subcategory.
+          - name: brand
+            description: Fictional product brand.
+          - name: is_private_label
+            description: Whether the product carries Meridian's fictional private label.
+          - name: unit_of_measure
+            description: Unit in which the product is sold.
+          - name: pack_qty
+            description: Number of selling units in one pack.
+          - name: standard_unit_cost
+            description: Baseline unit cost before historical drift.
+          - name: list_price
+            description: Published unit list price before historical drift.
+          - name: abc_class
+            description: Unit-volume classification, with A representing the highest-volume items.
+          - name: xyz_class
+            description: Demand-variability classification, with Z representing intermittent items.
+          - name: is_hazmat
+            description: Whether the product requires hazardous-material handling.
+          - name: weight_lbs
+            description: Product shipping weight in pounds.
+          - name: cube_cuft
+            description: Product storage volume in cubic feet.
+          - name: lifecycle_status
+            description: Current product lifecycle state.
+          - name: first_sold_date
+            description: Date the SKU was first sold.
+
+      - name: product_substitutes
+        identifier: raw_erp__product_substitutes
+        description: Approved substitute relationships between compatible SKUs.
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [sku, substitute_sku]
+        columns:
+          - name: sku
+            description: Original SKU that may require substitution.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: substitute_sku
+            description: Compatible SKU offered in place of the original.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: substitution_type
+            description: Type of compatibility between the original and substitute SKU.
+          - name: preference_rank
+            description: Preferred substitution order, starting at one.
+
+      - name: suppliers
+        identifier: raw_erp__suppliers
+        description: Fictional supplier master with sourcing and reliability attributes.
+        columns:
+          - name: supplier_id
+            description: Unique supplier identifier.
+            data_tests: [not_null, unique]
+          - name: supplier_name
+            description: Fictional supplier name.
+          - name: supplier_country
+            description: Synthetic country in which the supplier is based.
+          - name: sourcing_region
+            description: Broad sourcing region used for lead-time disruption scenarios.
+          - name: payment_terms_days
+            description: Contracted payment term in days.
+          - name: is_private_label_manufacturer
+            description: Whether the supplier manufactures private-label products.
+          - name: quality_rating
+            description: Supplier quality score on a zero-to-one-hundred scale.
+
+      - name: supplier_products
+        identifier: raw_erp__supplier_products
+        description: Supplier-to-SKU sourcing terms and quoted lead times.
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [supplier_id, sku]
+        columns:
+          - name: supplier_id
+            description: Supplier offering the SKU.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('erp', 'suppliers')
+                    field: supplier_id
+          - name: sku
+            description: SKU offered by the supplier.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: is_primary_source
+            description: Whether this supplier is the preferred source for the SKU.
+          - name: quoted_lead_time_days
+            description: Supplier's quoted replenishment lead time in days.
+          - name: min_order_qty
+            description: Minimum quantity accepted on a purchase order line.
+          - name: order_multiple
+            description: Quantity multiple required when ordering.
+          - name: unit_cost
+            description: Supplier's quoted unit cost at the effective date.
+          - name: effective_from_date
+            description: Date from which the sourcing terms apply.
+
+      - name: customers
+        identifier: raw_erp__customers
+        description: Fictional industrial customer master.
+        columns:
+          - name: customer_id
+            description: Unique customer identifier.
+            data_tests: [not_null, unique]
+          - name: customer_name
+            description: Fictional customer account name.
+          - name: industry_segment
+            description: Industrial market segment served by the customer.
+          - name: size_tier
+            description: Customer size classification.
+          - name: contract_type
+            description: Commercial agreement type.
+          - name: is_onsite_program
+            description: Whether Meridian operates an onsite inventory program for the customer.
+          - name: primary_location_id
+            description: Meridian location primarily serving the customer.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: first_order_date
+            description: Date of the customer's first order.
+
+      - name: sales_orders
+        identifier: raw_erp__sales_orders
+        description: Sales order headers across all synthetic channels.
+        columns:
+          - name: order_id
+            description: Unique sales order identifier.
+            data_tests: [not_null, unique]
+          - name: customer_id
+            description: Customer placing the order.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'customers')
+                    field: customer_id
+          - name: fulfilling_location_id
+            description: Meridian location responsible for fulfillment.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: order_channel
+            description: Channel through which the order arrived.
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [branch_counter, ecommerce, edi, mobile_app, inside_sales]
+          - name: ordered_at
+            description: Timestamp when the order was placed.
+          - name: requested_ship_date
+            description: Customer-requested shipment date.
+          - name: order_status
+            description: Current header-level order status.
+
+      - name: sales_order_lines
+        identifier: raw_erp__sales_order_lines
+        description: Sales order line demand, fulfillment, censoring, and substitution outcomes.
+        # Freshness is illustrative against seeded data rather than a live ingestion SLA.
+        config:
+          loaded_at_field: shipped_at
+          freshness:
+            warn_after: {count: 30, period: day}
+            error_after: {count: 60, period: day}
+
+        columns:
+          - name: order_line_id
+            description: Unique sales order line identifier.
+            data_tests: [not_null, unique]
+          - name: order_id
+            description: Parent sales order identifier.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'sales_orders')
+                    field: order_id
+          - name: sku
+            description: Originally requested SKU.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: ordered_qty
+            description: Quantity requested by the customer.
+          - name: shipped_qty
+            description: Quantity shipped after availability constraints.
+          - name: unit_price
+            description: Selling price per unit at order time.
+          - name: unit_cost
+            description: Historical unit cost recognized on the line.
+          - name: line_status
+            description: Line-level fulfillment outcome.
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [shipped_complete, shipped_partial, backordered, substituted, cancelled]
+          - name: shipped_at
+            description: Timestamp the fulfilled quantity shipped, when applicable.
+          - name: substituted_sku
+            description: Replacement SKU shipped for a substituted line, otherwise null.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+
+      - name: purchase_orders
+        identifier: raw_erp__purchase_orders
+        description: Purchase order headers issued to fictional suppliers.
+        columns:
+          - name: po_id
+            description: Unique purchase order identifier.
+            data_tests: [not_null, unique]
+          - name: supplier_id
+            description: Supplier receiving the purchase order.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'suppliers')
+                    field: supplier_id
+          - name: destination_location_id
+            description: Meridian location receiving the replenishment.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('wms', 'locations')
+                    field: location_id
+          - name: ordered_at
+            description: Timestamp the purchase order was placed.
+          - name: promised_date
+            description: Supplier-promised receipt date.
+          - name: po_status
+            description: Current purchase order status.
+
+      - name: purchase_order_lines
+        identifier: raw_erp__purchase_order_lines
+        description: Purchase order lines with quantities, costs, and actual receipt timing.
+        columns:
+          - name: po_line_id
+            description: Unique purchase order line identifier.
+            data_tests: [not_null, unique]
+          - name: po_id
+            description: Parent purchase order identifier.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'purchase_orders')
+                    field: po_id
+          - name: sku
+            description: Replenished SKU.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('erp', 'products')
+                    field: sku
+          - name: ordered_qty
+            description: Quantity ordered from the supplier.
+          - name: received_qty
+            description: Quantity received by the history cutoff.
+          - name: unit_cost
+            description: Purchase unit cost including modeled drift and disruption effects.
+          - name: received_at
+            description: Actual receipt timestamp, null when not yet received.
