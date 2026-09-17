@@ -16,6 +16,10 @@ clean-targets:
   - target
   - dbt_packages
 
+on-run-start:
+  - "{{ bootstrap_optimizer_source() }}"
+
+
 models:
   meridian_supply_chain:
     +persist_docs:
