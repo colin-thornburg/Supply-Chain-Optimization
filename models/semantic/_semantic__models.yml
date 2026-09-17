@@ -1,0 +1,335 @@
+version: 2
+
+models:
+  - name: dim_products
+    description: One row per SKU with merchandising, handling, lifecycle, and substitutable-group attributes.
+    semantic_model:
+      enabled: true
+      name: products
+    columns:
+      - name: sku
+        description: Product business key shared by transactional marts.
+        entity: {type: primary, name: sku}
+      - name: category
+        description: Broad MRO family used for portfolio reporting.
+        dimension: {type: categorical}
+      - name: brand
+        description: Fictional product label presented to customers.
+        dimension: {type: categorical}
+      - name: abc_class
+        description: Volume importance band assigned by merchandising.
+        dimension: {type: categorical}
+      - name: xyz_class
+        description: Source-system variability band assigned to the SKU.
+        dimension: {type: categorical}
+      - name: lifecycle_status
+        description: Commercial availability state used in obsolescence analysis.
+        dimension: {type: categorical}
+      - name: is_private_label
+        description: Identifies items controlled under Meridian's private label.
+        dimension: {type: categorical}
+
+  - name: dim_customers
+    description: One row per fictional customer account with its commercial segmentation.
+    semantic_model:
+      enabled: true
+      name: customers
+    columns:
+      - name: customer_id
+        description: Customer business key carried by sales facts.
+        entity: {type: primary, name: customer}
+      - name: industry_segment
+        description: End market in which the customer operates.
+        dimension: {type: categorical}
+      - name: size_tier
+        description: Commercial scale band for account reporting.
+        dimension: {type: categorical}
+      - name: contract_type
+        description: Pricing and service arrangement governing the account.
+        dimension: {type: categorical}
+      - name: is_onsite_program
+        description: Indicates a customer facility supported by Meridian inventory staff.
+        dimension: {type: categorical}
+
+  - name: dim_locations
+    description: One row per network node with its geographic and replenishment hierarchy attributes.
+    semantic_model:
+      enabled: true
+      name: locations
+    columns:
+      - name: location_id
+        description: Network-node business key shared by demand and inventory facts.
+        entity: {type: primary, name: location}
+      - name: region
+        description: Domestic operating territory used for service reporting.
+        dimension: {type: categorical}
+      - name: location_type
+        description: Role the node plays in the distribution echelon.
+        dimension: {type: categorical}
+      - name: echelon_level
+        description: "{{ doc('echelon') }}"
+
+        dimension: {type: categorical}
+      - name: echelon_path
+        description: Human-readable route from the national DC to this node.
+        dimension: {type: categorical}
+
+  - name: dim_suppliers
+    description: One row per fictional supplier available to Meridian procurement.
+    semantic_model:
+      enabled: true
+      name: suppliers
+    columns:
+      - name: supplier_id
+        description: Supplier business key shared by procurement facts.
+        entity: {type: primary, name: supplier}
+      - name: sourcing_region
+        description: Geographic disruption-risk grouping.
+        dimension: {type: categorical}
+      - name: supplier_country
+        description: Country associated with the supplier origin.
+        dimension: {type: categorical}
+      - name: is_private_label_manufacturer
+        description: Indicates approval to produce Meridian private-label items.
+        dimension: {type: categorical}
+
+  - name: dim_date
+    description: One row per calendar day in the demo history and the standard MetricFlow time spine.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        description: Canonical daily date used to fill metric time windows.
+        granularity: day
+
+  - name: fct_sales_order_lines
+    description: One row per sales order line with uncensored demand, fulfillment, revenue, and cost.
+    semantic_model:
+      enabled: true
+      name: sales_order_lines
+    agg_time_dimension: ordered_at
+    columns:
+      - name: order_line_id
+        description: Unique grain of the sales fact.
+        entity: {type: primary, name: order_line}
+      - name: sku_location_key
+        description: Shared key to the unique SKU-location service profile.
+        entity: {type: foreign, name: sku_location}
+      - name: sku
+        description: Item originally requested by the customer.
+        entity: {type: foreign, name: sku}
+      - name: location_id
+        description: Node responsible for fulfilling the line.
+        entity: {type: foreign, name: location}
+      - name: customer_id
+        description: Account that placed the order.
+        entity: {type: foreign, name: customer}
+      - name: order_id
+        description: Header transaction containing the line.
+        entity: {type: foreign, name: sales_order}
+
+      - name: ordered_at
+        description: Timestamp used for demand and revenue period assignment.
+        granularity: day
+        dimension: {type: time}
+      - name: order_channel
+        description: Interaction channel through which the order entered ERP.
+        dimension: {type: categorical}
+      - name: line_status
+        description: Fulfillment outcome for the requested item.
+        dimension: {type: categorical}
+    metrics:
+      - {name: ordered_qty, type: simple, label: Ordered Quantity, description: Units requested on non-cancelled customer lines before inventory constraints., agg: sum, expr: gross_demand_qty, config: {meta: {owner: analytics-engineering}}}
+
+      - {name: shipped_qty, type: simple, label: Shipped Quantity, description: Units physically released to customers., agg: sum, expr: shipped_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: backordered_qty, type: simple, label: Backordered Quantity, description: Requested units not fulfilled on backordered or partially shipped lines., agg: sum, expr: backordered_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: substituted_qty, type: simple, label: Substituted Quantity, description: Units fulfilled with an approved alternative SKU., agg: sum, expr: substituted_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: order_line_count, type: simple, label: Order Line Count, description: Number of customer order lines accepted for fulfillment analysis., agg: count, expr: 1, config: {meta: {owner: analytics-engineering}}}
+      - {name: shipped_line_count, type: simple, label: Completely Shipped Line Count, description: Number of lines whose full requested quantity shipped., agg: sum_boolean, expr: is_line_filled, config: {meta: {owner: analytics-engineering}}}
+
+
+      - {name: net_sales, type: simple, label: Net Sales, description: Extended selling value of units that actually shipped., agg: sum, expr: net_sales, config: {meta: {owner: analytics-engineering}}}
+      - {name: cost_of_goods, type: simple, label: Cost of Goods Sold, description: Extended product cost associated with shipped units., agg: sum, expr: cost_of_goods, config: {meta: {owner: analytics-engineering}}}
+      - {name: units_shipped, type: simple, label: Units Shipped, description: Governed unit-volume measure for completed and partial shipments., agg: sum, expr: shipped_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: line_fill_rate, type: ratio, label: Line Fill Rate, description: Share of order lines filled completely on the first fulfillment outcome., numerator: shipped_line_count, denominator: order_line_count, config: {meta: {owner: analytics-engineering}}}
+      - {name: unit_fill_rate, type: ratio, label: Unit Fill Rate, description: Share of requested units that physically shipped., numerator: shipped_qty, denominator: ordered_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: backorder_rate, type: ratio, label: Backorder Rate, description: Share of requested units left unfilled because inventory was unavailable., numerator: backordered_qty, denominator: ordered_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: substitution_rate, type: ratio, label: Substitution Rate, description: Share of requested units fulfilled through an approved alternative., numerator: substituted_qty, denominator: ordered_qty, config: {meta: {owner: analytics-engineering}}}
+      - name: gross_margin
+        type: derived
+        label: Gross Margin
+        description: Net sales remaining after product cost, before operating expenses.
+        expr: net_sales_value - cost_value
+        input_metrics:
+          - {name: net_sales, alias: net_sales_value}
+          - {name: cost_of_goods, alias: cost_value}
+        config: {meta: {owner: analytics-engineering}}
+      - name: gross_margin_pct
+        type: derived
+        label: Gross Margin Percent
+        description: Gross margin expressed as a share of net sales.
+        expr: gross_margin_value / nullif(net_sales_value, 0)
+        input_metrics:
+          - {name: gross_margin, alias: gross_margin_value}
+          - {name: net_sales, alias: net_sales_value}
+        config: {meta: {owner: analytics-engineering}}
+
+  - name: fct_purchase_order_lines
+    description: One row per purchase order line with promised and actual supplier outcomes.
+    semantic_model: {enabled: true, name: purchase_order_lines}
+    agg_time_dimension: ordered_at
+    columns:
+      - {name: po_line_id, description: Unique grain of procurement detail., entity: {type: primary, name: po_line}}
+      - {name: supplier_id, description: Supplier responsible for the inbound line., entity: {type: foreign, name: supplier}}
+      - {name: sku, description: Item ordered for replenishment., entity: {type: foreign, name: sku}}
+      - {name: location_id, description: Network destination for the inbound inventory., entity: {type: foreign, name: location}}
+      - {name: ordered_at, description: Timestamp when Meridian released the purchase order., granularity: day, dimension: {type: time}}
+      - {name: is_on_time, description: Indicates receipt on or before the supplier promise date., dimension: {type: categorical}}
+    metrics:
+      - {name: po_line_count, type: simple, label: Purchase Order Line Count, description: Number of replenishment lines placed with suppliers., agg: count, expr: 1, config: {meta: {owner: analytics-engineering}}}
+      - {name: on_time_po_line_count, type: simple, label: On-Time PO Line Count, description: Number of received lines arriving by the promised date., agg: sum, expr: "case when is_on_time then 1 else 0 end", config: {meta: {owner: analytics-engineering}}}
+      - {name: received_po_line_count, type: simple, label: Received PO Line Count, description: Number of lines with a recorded warehouse receipt., agg: sum, expr: "case when received_at is not null then 1 else 0 end", config: {meta: {owner: analytics-engineering}}}
+      - {name: open_po_value, type: simple, label: Open PO Value, description: Acquisition value of ordered units not yet received., agg: sum, expr: open_po_value, config: {meta: {owner: analytics-engineering}}}
+      - {name: supplier_on_time_rate, type: ratio, label: Supplier On-Time Rate, description: Share of received purchase order lines arriving by promise., numerator: on_time_po_line_count, denominator: received_po_line_count, config: {meta: {owner: analytics-engineering}}}
+
+  - name: fct_inventory_snapshots
+    description: One row per SKU, location, and weekly snapshot date with physical and inbound inventory value.
+    semantic_model: {enabled: true, name: inventory_snapshots}
+    agg_time_dimension: snapshot_date
+    columns:
+      - {name: inventory_snapshot_key, description: Unique hash for the snapshot grain., entity: {type: primary, name: inventory_snapshot}}
+      - {name: sku, description: Item represented by the balance., entity: {type: foreign, name: sku}}
+      - {name: location_id, description: Network node holding or receiving the balance., entity: {type: foreign, name: location}}
+      - {name: snapshot_date, description: Weekly observation date used for period-end selection., granularity: day, dimension: {type: time}}
+      - {name: is_excess_or_obsolete, description: Indicates positive stock with no gross demand in the preceding 26 weeks., dimension: {type: categorical}}
+    metrics:
+      # Inventory is semi-additive: sum across SKU/location, then choose the latest snapshot in time.
+      # Summing snapshots across dates is the most common inventory semantic modeling error.
+      - name: on_hand_qty
+        type: simple
+        label: On-Hand Quantity
+        description: Physical units held at the latest snapshot in the requested period.
+        agg: sum
+        expr: on_hand_qty
+        non_additive_dimension: {name: snapshot_date, window_choice: max, window_agg: max}
+        config: {meta: {owner: analytics-engineering}}
+      - name: on_hand_value
+        type: simple
+        label: On-Hand Inventory Value
+        description: Standard-cost value held at the latest snapshot in the requested period.
+        agg: sum
+        expr: on_hand_value
+        non_additive_dimension: {name: snapshot_date, window_choice: max, window_agg: max}
+        config: {meta: {owner: analytics-engineering}}
+      - name: on_order_value
+        type: simple
+        label: On-Order Inventory Value
+        description: Standard-cost value of inbound supplier inventory at period end.
+        agg: sum
+        expr: on_order_value
+        non_additive_dimension: {name: snapshot_date, window_choice: max, window_agg: max}
+        config: {meta: {owner: analytics-engineering}}
+      - name: average_on_hand_value
+        type: simple
+        label: Average On-Hand Inventory Value
+        description: Average snapshot inventory value used as the denominator for productivity metrics.
+        agg: average
+        expr: on_hand_value
+        config: {meta: {owner: analytics-engineering}}
+      - name: excess_obsolete_on_hand_value
+        type: simple
+        label: Excess and Obsolete On-Hand Value
+        description: Period-end inventory value for SKU-locations with no demand in the prior 26 weeks; non-qualifying rows contribute zero so the E&O predicate cannot change which snapshot is selected.
+        agg: sum
+        expr: excess_obsolete_on_hand_value
+
+        non_additive_dimension: {name: snapshot_date, window_choice: max, window_agg: max}
+        config: {meta: {owner: analytics-engineering}}
+
+
+  - name: fct_stockout_events
+    description: One row per contiguous SKU-location stockout window.
+    semantic_model: {enabled: true, name: stockout_events}
+    agg_time_dimension: stockout_start_date
+    columns:
+      - {name: stockout_event_key, description: Unique hash for a contiguous stockout window., entity: {type: primary, name: stockout_event}}
+      - {name: sku, description: Item unavailable during the event., entity: {type: foreign, name: sku}}
+      - {name: location_id, description: Network node experiencing the event., entity: {type: foreign, name: location}}
+      - {name: stockout_start_date, description: First day of the observed stockout., granularity: day, dimension: {type: time}}
+    metrics:
+      - {name: stockout_days, type: simple, label: Stockout Days, description: Calendar days during which a SKU-location was observed unavailable., agg: sum, expr: stockout_days, config: {meta: {owner: analytics-engineering}}}
+      - {name: stockout_impact_units, type: simple, label: Demand During Stockouts, description: Gross demand units arriving while inventory was unavailable., agg: sum, expr: gross_demand_during_stockout_qty, config: {meta: {owner: analytics-engineering}}}
+
+  - name: agg_sku_location_demand_weekly
+    description: One row per SKU, location, and week combining uncensored demand, variability, policy, and supplier lead-time inputs.
+    semantic_model: {enabled: true, name: demand_weekly}
+    agg_time_dimension: demand_week
+    columns:
+      - {name: sku_location_week_key, description: Unique hash for the weekly optimizer grain., entity: {type: primary, name: sku_location_week}}
+      - {name: sku, description: Item represented by the weekly demand signal., entity: {type: foreign, name: sku}}
+      - {name: location_id, description: Network node represented by the weekly demand signal., entity: {type: foreign, name: location}}
+      - {name: primary_supplier_id, description: Preferred source used for replenishment assumptions., entity: {type: foreign, name: supplier}}
+      - {name: demand_week, description: Monday starting the demand week., granularity: week, dimension: {type: time}}
+      - {name: demand_class, description: "{{ doc('demand_classification') }}", dimension: {type: categorical}}
+
+      - {name: category, description: Product family denormalized for optimizer slicing., dimension: {type: categorical}}
+      - {name: abc_class, description: Product volume-importance band., dimension: {type: categorical}}
+    metrics:
+      - {name: gross_demand_units, type: simple, label: Gross Demand Units, description: Customer-requested units before stockouts or substitutions censor fulfillment., agg: sum, expr: gross_demand_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: weekly_net_shipped_units, type: simple, label: Weekly Net Shipped Units, description: Units physically fulfilled within the weekly optimizer grain., agg: sum, expr: net_shipped_qty, config: {meta: {owner: analytics-engineering}}}
+      - {name: weekly_order_line_count, type: simple, label: Weekly Order Line Count, description: Customer order lines assigned to each optimizer week., agg: sum, expr: order_line_count, config: {meta: {owner: analytics-engineering}}}
+      - {name: weekly_shipped_line_count, type: simple, label: Weekly Shipped Line Count, description: Completely filled customer lines assigned to each optimizer week., agg: sum, expr: shipped_line_count, config: {meta: {owner: analytics-engineering}}}
+      - {name: weekly_line_fill_rate, type: ratio, label: Weekly Line Fill Rate, description: Share of weekly order lines filled completely., numerator: weekly_shipped_line_count, denominator: weekly_order_line_count, config: {meta: {owner: analytics-engineering}}}
+
+  - name: agg_sku_location_service_metrics
+    description: One row per SKU and location with current service and inventory policy outcomes.
+    semantic_model: {enabled: true, name: sku_location_service_metrics}
+    columns:
+      - {name: sku_location_key, description: Unique hash shared by sales lines at the same SKU-location., entity: {type: primary, name: sku_location}}
+      - {name: sku, description: Item represented by the service profile., entity: {type: foreign, name: sku}}
+      - {name: location_id, description: Network node represented by the service profile., entity: {type: foreign, name: location}}
+      - {name: category, description: Product family used with governed service metrics., dimension: {type: categorical}}
+      - {name: demand_class, description: Syntetos-Boylan behavior class for the SKU-location., dimension: {type: categorical}}
+
+metrics:
+  - name: trailing_12_week_gross_demand_units
+    type: cumulative
+    label: Trailing 12-Week Gross Demand Units
+    description: Customer-requested units accumulated across the latest twelve demand weeks.
+    input_metric: gross_demand_units
+    window: 12 weeks
+    config: {meta: {owner: analytics-engineering}}
+  - name: period_end_on_hand_value
+    type: cumulative
+    label: Period-End On-Hand Value
+    description: Inventory value from the final available snapshot in each requested period.
+    input_metric: on_hand_value
+    period_agg: last
+    config: {meta: {owner: analytics-engineering}}
+  - name: inventory_turns
+    type: derived
+    label: Inventory Turns
+    description: Cost of goods sold divided by average on-hand inventory value for the requested period.
+    expr: cogs / nullif(avg_inventory, 0)
+    input_metrics:
+      - {name: cost_of_goods, alias: cogs}
+      - {name: average_on_hand_value, alias: avg_inventory}
+    config: {meta: {owner: analytics-engineering}}
+  - name: days_of_supply
+    type: derived
+    label: Days of Supply
+    description: Period-end units on hand divided by average daily gross demand implied by weekly demand.
+    expr: 7 * inventory_units / nullif(demand_units, 0)
+    input_metrics:
+      - {name: on_hand_qty, alias: inventory_units}
+      - {name: gross_demand_units, alias: demand_units}
+    config: {meta: {owner: analytics-engineering}}
+  - name: gmroi
+    type: derived
+    label: Gross Margin Return on Inventory
+    description: Gross margin generated per dollar of average inventory investment.
+    expr: margin_value / nullif(avg_inventory, 0)
+    input_metrics:
+      - {name: gross_margin, alias: margin_value}
+      - {name: average_on_hand_value, alias: avg_inventory}
+    config: {meta: {owner: analytics-engineering}}

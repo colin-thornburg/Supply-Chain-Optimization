@@ -1,0 +1,5 @@
+supplier_id,supplier_name,supplier_country,sourcing_region,payment_terms_days,is_private_label_manufacturer,quality_rating
+SUP0001,Fictional Supply Partner 001,United States,north_america,30,true,96.5000
+SUP0002,Fictional Supply Partner 002,Estovia,eastern_corridor,45,false,88.2500
+SUP0003,Fictional Supply Partner 003,Pacifica,pacific_basin,60,true,81.7500
+SUP0004,Fictional Supply Partner 004,Belvaria,central_europe,30,false,92.0000

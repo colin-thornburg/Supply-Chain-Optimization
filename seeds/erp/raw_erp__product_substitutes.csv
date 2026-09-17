@@ -1,0 +1,4 @@
+sku,substitute_sku,substitution_type,preference_rank
+SKU000001,SKU000002,equivalent,1
+SKU000007,SKU000010,alternate_pack,1
+SKU000010,SKU000007,upgrade,1

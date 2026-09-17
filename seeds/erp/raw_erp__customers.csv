@@ -1,0 +1,6 @@
+customer_id,customer_name,industry_segment,size_tier,contract_type,is_onsite_program,primary_location_id,first_order_date
+CUS00001,Fictional Industrial Account 0001,fabrication,enterprise,strategic,true,LOC004,2020-01-15
+CUS00002,Fictional Industrial Account 0002,food_processing,mid_market,standard,false,LOC003,2021-06-01
+CUS00003,Fictional Industrial Account 0003,utilities,enterprise,managed_inventory,true,LOC004,2019-09-12
+CUS00004,Fictional Industrial Account 0004,transportation,small,spot,false,LOC003,2023-02-20
+CUS00005,Fictional Industrial Account 0005,general_manufacturing,mid_market,standard,false,LOC003,2022-11-05

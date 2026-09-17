@@ -1,0 +1,359 @@
+version: 2
+
+models:
+  - name: stg_erp__products
+    description: One row per SKU from the ERP product master, standardized for downstream product and inventory modeling.
+    columns:
+      - name: sku
+        description: Stable business identifier used to join product activity across ERP and WMS records.
+        data_tests: [not_null, unique]
+      - name: product_name
+        description: Display name used in operational and analytical interfaces.
+      - name: category
+        description: Highest merchandising level used to compare broad MRO demand patterns.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [safety_ppe, winter, hvac_filters, cooling, fasteners, power_transmission, fluid_handling, tools]
+      - name: subcategory
+        description: More specific merchandising family within the product category.
+      - name: brand
+        description: Fictional label under which the item is sold.
+      - name: is_private_label
+        description: True when Meridian controls the product label and sourcing relationship.
+      - name: unit_of_measure
+        description: Selling unit that gives quantity fields their operational meaning.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [each, box, case, pair, roll, bag]
+      - name: pack_qty
+        description: Count of selling units contained in a standard pack.
+      - name: standard_unit_cost
+        description: Baseline acquisition cost used to value inventory consistently.
+      - name: list_price
+        description: Published price before customer-specific commercial terms.
+      - name: abc_class
+        description: Volume ranking where A items account for the largest share of unit demand.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [A, B, C]
+      - name: xyz_class
+        description: Source-system demand variability band where Z represents the least predictable items.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [X, Y, Z]
+      - name: is_hazmat
+        description: True when storage and transportation require hazardous-material controls.
+      - name: weight_lbs
+        description: Shipping weight in pounds used for handling and network planning.
+      - name: cube_cuft
+        description: Storage volume in cubic feet used for capacity planning.
+      - name: lifecycle_status
+        description: Commercial availability state that informs stocking and obsolescence decisions.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [active, phase_out, new, discontinued]
+      - name: first_sold_date
+        description: Earliest date from which the SKU can legitimately contribute demand.
+
+  - name: stg_erp__product_substitutes
+    description: One row per directed original-SKU and substitute-SKU pairing approved in the ERP product master.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sku, substitute_sku]
+    columns:
+      - name: product_substitute_key
+        description: Hash key for the directed original and substitute SKU combination.
+        data_tests: [not_null, unique]
+      - name: sku
+        description: Requested item for which an alternative may be supplied.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: substitute_sku
+        description: Approved item that can satisfy demand for the requested SKU.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: substitution_type
+        description: Commercial relationship between the requested and replacement items.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [equivalent, upgrade, alternate_pack]
+      - name: preference_rank
+        description: Sequence used to choose among multiple approved alternatives, beginning with one.
+
+  - name: stg_erp__suppliers
+    description: One row per fictional supplier account available for Meridian purchasing decisions.
+    columns:
+      - name: supplier_id
+        description: Stable ERP identifier used on sourcing agreements and purchase orders.
+        data_tests: [not_null, unique]
+      - name: supplier_name
+        description: Fictional trading name shown in procurement workflows.
+      - name: supplier_country
+        description: Country associated with the supplier's manufacturing or shipping origin.
+      - name: sourcing_region
+        description: Geographic risk grouping used to analyze disruption exposure.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [north_america, eastern_corridor, pacific_basin, central_europe]
+      - name: payment_terms_days
+        description: Number of days Meridian has to settle an approved invoice.
+      - name: is_private_label_manufacturer
+        description: True when the supplier is approved to produce Meridian-labeled items.
+      - name: quality_rating
+        description: Procurement quality score on a zero-to-one-hundred scale.
+
+  - name: stg_erp__supplier_products
+    description: One row per supplier and SKU sourcing agreement, including the currently quoted ordering terms.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [supplier_id, sku]
+    columns:
+      - name: supplier_product_key
+        description: Hash key for the supplier and SKU sourcing combination.
+        data_tests: [not_null, unique]
+      - name: supplier_id
+        description: Procurement account offering the item.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__suppliers')
+                field: supplier_id
+      - name: sku
+        description: Item covered by the sourcing terms.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: is_primary_source
+        description: True when this is Meridian's preferred replenishment source for the item.
+      - name: quoted_lead_time_days
+        description: Supplier commitment from order placement to receipt, measured in calendar days.
+      - name: min_order_qty
+        description: Smallest quantity the supplier accepts on one purchase order line.
+      - name: order_multiple
+        description: Quantity increment required above the minimum order quantity.
+      - name: unit_cost
+        description: Quoted acquisition cost effective for the sourcing agreement.
+      - name: effective_from_date
+        description: First date on which the quoted terms apply.
+
+  - name: stg_erp__customers
+    description: One row per fictional industrial customer account represented in ERP order history.
+    columns:
+      - name: customer_id
+        description: Stable account identifier carried onto sales orders.
+        data_tests: [not_null, unique]
+      - name: customer_name
+        description: Fictional account name used in sales and service workflows.
+      - name: industry_segment
+        description: End-market grouping used to compare demand behavior across customer industries.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [fabrication, food_processing, utilities, transportation, public_works, general_manufacturing]
+      - name: size_tier
+        description: Commercial scale band used for account segmentation.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [small, mid_market, enterprise]
+      - name: contract_type
+        description: Pricing and service arrangement governing the account.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [spot, standard, strategic, managed_inventory]
+      - name: is_onsite_program
+        description: True when Meridian supports inventory inside a customer facility.
+      - name: primary_location_id
+        description: Network location normally responsible for serving the account.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: first_order_date
+        description: Earliest known order date for customer tenure analysis.
+
+  - name: stg_erp__sales_orders
+    description: One row per ERP sales order header, preserving customer, fulfillment, channel, and requested timing.
+    columns:
+      - name: order_id
+        description: Stable transaction identifier shared by all lines on the customer order.
+        data_tests: [not_null, unique]
+      - name: customer_id
+        description: Account that placed the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__customers')
+                field: customer_id
+      - name: fulfilling_location_id
+        description: Network node assigned responsibility for shipping the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: order_channel
+        description: Customer interaction channel through which the order entered ERP.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [branch_counter, ecommerce, edi, mobile_app, inside_sales]
+      - name: ordered_at
+        description: Local timestamp at which Meridian accepted the order.
+      - name: requested_ship_date
+        description: Date by which the customer asked Meridian to release the shipment.
+      - name: order_status
+        description: Header-level fulfillment state summarized by ERP.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [complete, partially_shipped, open, cancelled]
+
+  - name: stg_erp__sales_order_lines
+    description: One row per ERP sales order line, retaining requested and fulfilled quantities so censored demand remains observable.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: ordered_qty >= 0 and shipped_qty >= 0
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: shipped_qty <= ordered_qty
+    columns:
+      - name: order_line_id
+        description: Stable line identifier and row-level grain of the order detail.
+        data_tests: [not_null, unique]
+      - name: order_id
+        description: Header transaction containing the line.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__sales_orders')
+                field: order_id
+      - name: sku
+        description: Item originally requested by the customer, even when another item ships.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: ordered_qty
+        description: Units requested before inventory availability constrains fulfillment.
+      - name: shipped_qty
+        description: Units physically released against the line.
+      - name: unit_price
+        description: Customer selling price per requested unit at order time.
+      - name: unit_cost
+        description: Product cost per unit recognized for margin analysis.
+      - name: line_status
+        description: Fulfillment outcome distinguishing complete, partial, unfilled, substituted, and cancelled demand.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [shipped_complete, shipped_partial, backordered, substituted, cancelled]
+      - name: shipped_at
+        description: Timestamp of physical shipment; null when no units left the network.
+      - name: substituted_sku
+        description: Item actually supplied when the requested SKU was replaced; otherwise null.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+
+  - name: stg_erp__purchase_orders
+    description: One row per ERP purchase order header issued to a supplier for delivery to a Meridian network node.
+    columns:
+      - name: po_id
+        description: Stable procurement transaction identifier shared by all purchase order lines.
+        data_tests: [not_null, unique]
+      - name: supplier_id
+        description: Procurement account responsible for fulfilling the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__suppliers')
+                field: supplier_id
+      - name: destination_location_id
+        description: Network node expected to receive the inbound inventory.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_wms__locations')
+                field: location_id
+      - name: ordered_at
+        description: Timestamp when Meridian released the purchase order to the supplier.
+      - name: promised_date
+        description: Receipt date committed by the supplier when the order was placed.
+      - name: po_status
+        description: ERP summary of whether the inbound order is open, partial, complete, or cancelled.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [received, partially_received, open, cancelled]
+
+  - name: stg_erp__purchase_order_lines
+    description: One row per ERP purchase order line, retaining ordered quantity, received quantity, cost, and actual receipt timing.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: ordered_qty >= 0 and received_qty >= 0
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: received_qty <= ordered_qty * 1.05
+    columns:
+      - name: po_line_id
+        description: Stable line identifier and row-level grain of procurement detail.
+        data_tests: [not_null, unique]
+      - name: po_id
+        description: Purchase order header containing the line.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__purchase_orders')
+                field: po_id
+      - name: sku
+        description: Item Meridian requested from the supplier.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: ordered_qty
+        description: Units requested from the supplier before any short shipment.
+      - name: received_qty
+        description: Units physically received by Meridian as of the extract.
+      - name: unit_cost
+        description: Agreed acquisition cost per ordered unit.
+      - name: received_at
+        description: Actual warehouse receipt timestamp; null while the line remains unreceived.

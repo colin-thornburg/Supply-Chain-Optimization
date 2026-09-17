@@ -1,0 +1,56 @@
+version: 2
+
+saved_queries:
+  - name: service_performance_by_region_month
+    description: Monthly customer service outcomes by domestic operating region for dashboard trend analysis.
+    query_params:
+      metrics: [line_fill_rate, unit_fill_rate, backorder_rate, substitution_rate]
+      group_by:
+        - TimeDimension('metric_time', 'month')
+        - Dimension('location__region')
+    exports:
+      - name: service_performance_by_region_month
+        config: {export_as: view, schema: semantic_exports}
+
+  - name: fill_rate_by_category_and_demand_class
+    description: Weekly line-fill performance segmented by product family and Syntetos-Boylan demand behavior.
+    query_params:
+      metrics: [weekly_line_fill_rate, gross_demand_units]
+      group_by:
+        - Dimension('sku_location_week__category')
+        - Dimension('sku_location_week__demand_class')
+    exports:
+      - name: fill_rate_by_category_and_demand_class
+        config: {export_as: view, schema: semantic_exports}
+
+  - name: supplier_lead_time_scorecard
+    description: Supplier receipt reliability and remaining open purchase value for procurement review.
+    query_params:
+      metrics: [supplier_on_time_rate, po_line_count, open_po_value]
+      group_by:
+        - Entity('supplier')
+        - Dimension('supplier__sourcing_region')
+    exports:
+      - name: supplier_lead_time_scorecard
+        config: {export_as: view, schema: semantic_exports}
+
+  - name: inventory_value_by_echelon_and_abc_class
+    description: Period-end inventory investment by network level and product importance band.
+    query_params:
+      metrics: [on_hand_value, on_order_value, excess_obsolete_on_hand_value]
+      group_by:
+        - Dimension('location__location_type')
+        - Dimension('sku__abc_class')
+    exports:
+      - name: inventory_value_by_echelon_and_abc_class
+        config: {export_as: view, schema: semantic_exports}
+
+  - name: top_stockout_impact_skus
+    description: SKUs ranked by unavailable days and customer demand arriving during stockout windows.
+    query_params:
+      metrics: [stockout_days, stockout_impact_units]
+      group_by:
+        - Entity('sku')
+    exports:
+      - name: top_stockout_impact_skus
+        config: {export_as: view, schema: semantic_exports}

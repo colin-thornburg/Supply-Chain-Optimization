@@ -1,0 +1,5 @@
+location_id,location_name,location_type,parent_location_id,state,region,square_feet,is_active,opened_date
+LOC001,Meridian National DC 01,national_dc,,IL,central,700000,true,2001-01-15
+LOC002,Meridian Regional DC 02,regional_dc,LOC001,OH,central,220000,true,2008-06-01
+LOC003,Meridian Branch 03,branch,LOC002,PA,northeast,42000,true,2015-03-10
+LOC004,Meridian Onsite 04,onsite,LOC003,PA,northeast,4500,true,2021-09-20

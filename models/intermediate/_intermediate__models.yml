@@ -1,0 +1,180 @@
+version: 2
+
+models:
+  - name: int_demand_gross_vs_net
+    description: One row per sales order line with requested demand preserved beside fulfilled units so stockouts do not censor demand.
+    columns:
+      - {name: order_line_id, description: Sales line grain., data_tests: [not_null, unique]}
+      - {name: order_id, description: Parent customer order.}
+      - {name: sku, description: Originally requested item.}
+      - {name: location_id, description: Fulfilling network node.}
+      - {name: customer_id, description: Ordering account.}
+      - {name: order_channel, description: Channel through which demand arrived.}
+      - {name: ordered_at, description: Timestamp when demand entered ERP.}
+      - {name: demand_date, description: Calendar date assigned to demand.}
+      - {name: line_status, description: Fulfillment outcome for the request.}
+      - {name: gross_demand_qty, description: Non-cancelled units requested before availability constraints.}
+      - {name: net_shipped_qty, description: Units physically shipped.}
+      - {name: backordered_qty, description: Requested units left unfilled.}
+      - {name: substituted_qty, description: Units served with an alternative SKU.}
+
+  - name: int_demand_daily_spine
+    description: One row per active SKU, location, and eligible calendar day, including explicit zero-demand observations.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: [sku, location_id, demand_date]}
+    columns:
+      - {name: sku, description: Item represented by the daily observation., data_tests: [not_null]}
+      - {name: location_id, description: Network node represented by the daily observation., data_tests: [not_null]}
+      - {name: demand_date, description: Continuous calendar day in the item's active window., data_tests: [not_null]}
+      - {name: gross_demand_qty, description: Requested units including zeros and unfilled demand.}
+      - {name: net_shipped_qty, description: Units shipped on the day.}
+      - {name: backordered_qty, description: Units left unfilled on the day.}
+      - {name: substituted_qty, description: Units served through substitution on the day.}
+
+  - name: int_demand_variability
+    description: One row per SKU and location with weekly demand statistics and a Syntetos-Boylan behavior class using ADI 1.32 and CV² 0.49 cutoffs.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: [sku, location_id]}
+    columns:
+      - {name: sku, description: Item evaluated for demand behavior., data_tests: [not_null]}
+      - {name: location_id, description: Network node at which behavior is evaluated., data_tests: [not_null]}
+      - {name: observed_weeks, description: "Weeks included, including zero-demand weeks."}
+
+      - {name: nonzero_demand_weeks, description: Weeks containing at least one requested unit.}
+      - {name: mean_weekly_demand, description: Average requested units across all observed weeks.}
+      - {name: stddev_weekly_demand, description: Standard deviation across all observed weekly quantities.}
+      - {name: mean_nonzero_weekly_demand, description: Average demand size among weeks with demand.}
+      - {name: stddev_nonzero_weekly_demand, description: Demand-size deviation among non-zero weeks.}
+      - {name: coefficient_of_variation, description: Non-zero demand-size deviation divided by its mean.}
+      - {name: coefficient_of_variation_squared, description: Squared CV used by the classification boundary.}
+      - {name: average_demand_interval, description: Observed weeks divided by non-zero demand weeks.}
+      - name: demand_class
+        description: "{{ doc('demand_classification') }}"
+        data_tests:
+          - accepted_values:
+              arguments: {values: [smooth, erratic, intermittent, lumpy]}
+
+  - name: int_lead_time_actuals
+    description: One row per purchase order line comparing quoted, promised, and realized replenishment performance.
+    columns:
+      - {name: po_line_id, description: Purchase order line grain., data_tests: [not_null, unique]}
+      - {name: po_id, description: Parent replenishment order.}
+      - {name: sku, description: Item ordered from the supplier.}
+      - {name: supplier_id, description: Supplier responsible for receipt.}
+      - {name: location_id, description: Receiving network node.}
+      - {name: ordered_at, description: Timestamp the order was released.}
+      - {name: promised_date, description: Supplier commitment date.}
+      - {name: received_at, description: Actual receipt timestamp when available.}
+      - {name: ordered_qty, description: Units requested from the supplier.}
+      - {name: received_qty, description: Units received by the cutoff.}
+      - {name: unit_cost, description: Acquisition cost per unit.}
+      - {name: quoted_lead_time_days, description: Contracted replenishment duration.}
+      - {name: actual_lead_time_days, description: Calendar days from placement to receipt.}
+      - {name: lead_time_variance_days, description: Actual days less quoted days.}
+      - {name: is_on_time, description: Receipt occurred by the promised date.}
+      - {name: fill_reliability, description: "Received units divided by ordered units, capped at one."}
+
+
+  - name: int_supplier_reliability
+    description: One row per supplier and SKU summarizing observed lead-time and fill performance.
+    columns:
+      - {name: supplier_id, description: Supplier represented by the estimate.}
+      - {name: sku, description: Item represented by the estimate.}
+      - {name: received_po_line_count, description: Completed lines supporting the estimate.}
+      - {name: mean_actual_lead_time_days, description: Average observed replenishment duration.}
+      - {name: stddev_actual_lead_time_days, description: Observed lead-time dispersion.}
+      - {name: on_time_rate, description: Share of receipts meeting promise.}
+      - {name: fill_rate, description: Received units divided by ordered units.}
+      - {name: is_reliable_sample, description: True once at least five receipts support the estimate.}
+
+  - name: int_inventory_positions
+    description: One row per inventory snapshot with physical, committed, inbound, ATP, and standard-cost value views.
+    columns:
+      - {name: inventory_snapshot_key, description: Unique snapshot hash., data_tests: [not_null, unique]}
+      - {name: snapshot_date, description: Weekly observation date.}
+      - {name: location_id, description: Node holding the balance.}
+      - {name: sku, description: Item represented by the balance.}
+      - {name: on_hand_qty, description: Physical units present.}
+      - {name: allocated_qty, description: Units already committed.}
+      - {name: on_order_qty, description: Units expected from suppliers.}
+      - {name: in_transit_qty, description: Units moving through the network.}
+      - {name: current_safety_stock_qty, description: "{{ doc('safety_stock') }}"}
+      - {name: current_reorder_point, description: "{{ doc('reorder_point') }}"}
+      - {name: current_reorder_qty, description: Quantity released when policy triggers.}
+      - {name: last_count_date, description: Most recent physical count date.}
+      - {name: standard_unit_cost, description: Cost basis used for valuation.}
+      - {name: available_to_promise_qty, description: "{{ doc('available_to_promise') }}"}
+      - {name: total_inventory_position_qty, description: On hand plus inbound less allocations.}
+      - {name: on_hand_value, description: Standard-cost value of physical units.}
+      - {name: inventory_position_value, description: Standard-cost value of the total position.}
+      - {name: on_order_value, description: Standard-cost value expected from suppliers.}
+
+  - name: int_stockout_events
+    description: One row per contiguous weekly SKU-location stockout island with event duration and affected demand.
+    columns:
+      - {name: stockout_event_key, description: Unique event hash., data_tests: [not_null, unique]}
+      - {name: sku, description: Unavailable item.}
+      - {name: location_id, description: Node experiencing the stockout.}
+      - {name: stockout_start_date, description: First observed unavailable day.}
+      - {name: stockout_end_date, description: Final day covered by the weekly event.}
+      - {name: stockout_days, description: Inclusive calendar duration.}
+      - {name: gross_demand_during_stockout_qty, description: Requested units arriving during unavailability.}
+      - {name: shipped_during_stockout_qty, description: Units fulfilled during the same window.}
+
+  - name: int_substitution_chains
+    description: One row per SKU mapping the connected substitute graph to a stable group representative.
+    columns:
+      - {name: sku, description: Item represented by the graph mapping., data_tests: [not_null, unique]}
+      - {name: substitutable_group_sku, description: Lowest SKU identifier reachable in the connected substitute group.}
+      - {name: maximum_chain_depth, description: Longest explored path within the ten-hop safety bound.}
+
+unit_tests:
+  - name: demand_variability_assigns_all_four_classes
+    description: Readable fixtures demonstrate each Syntetos-Boylan quadrant.
+    model: int_demand_variability
+    given:
+      - input: ref('int_demand_daily_spine')
+        rows:
+          - {sku: SMOOTH, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 10}
+          - {sku: SMOOTH, location_id: LOC, demand_date: '2026-01-12', gross_demand_qty: 10}
+          - {sku: SMOOTH, location_id: LOC, demand_date: '2026-01-19', gross_demand_qty: 10}
+          - {sku: SMOOTH, location_id: LOC, demand_date: '2026-01-26', gross_demand_qty: 10}
+          - {sku: ERRATIC, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 1}
+          - {sku: ERRATIC, location_id: LOC, demand_date: '2026-01-12', gross_demand_qty: 1}
+          - {sku: ERRATIC, location_id: LOC, demand_date: '2026-01-19', gross_demand_qty: 1}
+          - {sku: ERRATIC, location_id: LOC, demand_date: '2026-01-26', gross_demand_qty: 20}
+          - {sku: INTERMITTENT, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 10}
+          - {sku: INTERMITTENT, location_id: LOC, demand_date: '2026-01-12', gross_demand_qty: 0}
+          - {sku: INTERMITTENT, location_id: LOC, demand_date: '2026-01-19', gross_demand_qty: 0}
+          - {sku: INTERMITTENT, location_id: LOC, demand_date: '2026-01-26', gross_demand_qty: 10}
+          - {sku: LUMPY, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 1}
+          - {sku: LUMPY, location_id: LOC, demand_date: '2026-01-12', gross_demand_qty: 0}
+          - {sku: LUMPY, location_id: LOC, demand_date: '2026-01-19', gross_demand_qty: 0}
+          - {sku: LUMPY, location_id: LOC, demand_date: '2026-01-26', gross_demand_qty: 20}
+    expect:
+      rows:
+        - {sku: SMOOTH, location_id: LOC, demand_class: smooth}
+        - {sku: ERRATIC, location_id: LOC, demand_class: erratic}
+        - {sku: INTERMITTENT, location_id: LOC, demand_class: intermittent}
+        - {sku: LUMPY, location_id: LOC, demand_class: lumpy}
+
+  - name: demand_variability_handles_sparse_edge_cases
+    description: Single demand, all-zero history, and one enormous outlier remain classified exhaustively.
+    model: int_demand_variability
+    given:
+      - input: ref('int_demand_daily_spine')
+        rows:
+          - {sku: SINGLE, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 7}
+          - {sku: ZERO, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 0}
+          - {sku: ZERO, location_id: LOC, demand_date: '2026-01-12', gross_demand_qty: 0}
+          - {sku: OUTLIER, location_id: LOC, demand_date: '2026-01-05', gross_demand_qty: 1}
+          - {sku: OUTLIER, location_id: LOC, demand_date: '2026-01-12', gross_demand_qty: 1}
+          - {sku: OUTLIER, location_id: LOC, demand_date: '2026-01-19', gross_demand_qty: 1}
+          - {sku: OUTLIER, location_id: LOC, demand_date: '2026-01-26', gross_demand_qty: 1000}
+    expect:
+      rows:
+        - {sku: SINGLE, location_id: LOC, demand_class: smooth}
+        - {sku: ZERO, location_id: LOC, demand_class: intermittent}
+        - {sku: OUTLIER, location_id: LOC, demand_class: erratic}
