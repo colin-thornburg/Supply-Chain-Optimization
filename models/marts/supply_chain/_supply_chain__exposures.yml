@@ -7,18 +7,49 @@ exposures:
     maturity: medium
     url: https://github.com/colin-thornburg/Supply-Chain-Optimization/tree/main/apps/inventory_optimizer
     description: >
-      Local Streamlit app that sizes multi-echelon inventory policy from weekly
-      SKU-location demand. Network overview KPIs are queried from the Semantic
-      Layer; safety stock, EOQ, pooling, and scenario math run in Python.
+      Streamlit inventory optimizer in `apps/inventory_optimizer/`. Network
+      overview KPIs come from the dbt Semantic Layer; safety stock, EOQ,
+      pooling, and scenario math run in Python on
+      `agg_sku_location_demand_weekly`. Optimizer math must not re-aggregate
+      headline Semantic Layer metrics. The overview is designed to match saved
+      queries `inventory_value_by_echelon_and_abc_class` and
+      `top_stockout_impact_skus`.
     depends_on:
       - ref('agg_sku_location_demand_weekly')
-      - ref('agg_supplier_scorecard')
-      - ref('agg_sku_location_service_metrics')
-      - ref('fct_inventory_snapshots')
-      - ref('dim_products')
       - ref('dim_locations')
+      - ref('dim_products')
       - ref('dim_suppliers')
+      - ref('stg_erp__supplier_products')
+      - ref('agg_supplier_scorecard')
+      - ref('fct_inventory_snapshots')
+      - ref('fct_sales_order_lines')
+      - ref('fct_stockout_events')
+      - ref('fct_purchase_order_lines')
+      - metric('on_hand_value')
+      - metric('line_fill_rate')
+      - metric('unit_fill_rate')
+      - metric('stockout_impact_units')
+      - metric('supplier_on_time_rate')
+      - metric('gross_demand_units')
+      - metric('on_order_value')
+      - metric('excess_obsolete_on_hand_value')
+      - metric('weekly_line_fill_rate')
+      - metric('stockout_days')
+    owner:
+      name: Analytics Engineering
+      email: analytics-engineering@meridian.example
+
+  - name: policy_recommendation_impact
+    label: Meridian policy recommendation impact
+    type: analysis
+    description: >
+      Closes the optimizer writeback loop. The Streamlit Recommendations page
+      writes `policy_recommendations`, and dbt compares each recommendation with
+      later inventory snapshots in `fct_policy_recommendation_impact`.
+    depends_on:
+      - source('optimizer', 'policy_recommendations')
       - ref('fct_policy_recommendation_impact')
+      - ref('fct_inventory_snapshots')
     owner:
       name: Analytics Engineering
       email: analytics-engineering@meridian.example
