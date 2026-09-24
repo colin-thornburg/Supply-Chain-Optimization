@@ -19,7 +19,7 @@ final as (
         sales_order_lines.order_id,
         sales_order_lines.sku,
         sales_orders.fulfilling_location_id as location_id,
-        sales_orders.customer_id,
+      
         sales_orders.order_channel,
         sales_orders.ordered_at,
         sales_orders.ordered_at::date as demand_date,
